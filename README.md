@@ -75,3 +75,4 @@ $ python convert_onnx_to_trt.py \
 * Add auto-fetching  of gpu memory consumption.
 * Add C++ impl.
 * Sort outputs before comparing, during conversion in onnx.
+* Use NVIDIA Triton inferecen?
