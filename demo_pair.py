@@ -1,15 +1,60 @@
-import os
-import cv2
+import argparse
 import glob
 import logging
-import argparse
-import numpy as np
-from nets.aliked import ALIKED
+import os
+
 from copy import deepcopy
 
-import torch
-from torchvision.transforms import ToTensor
+import cv2
+import numpy as np
+
+from nets.aliked import ALIKED
+
 from trt_model import TRTInference, LOGGER_DICT
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="ALIKED image pair Demo.")
+    parser.add_argument("input", type=str, default="", help="Image directory.")
+    parser.add_argument(
+        "--trt_model_path",
+        type=str,
+        default=None,
+        help="Path to .trt version of model.",
+    )
+    parser.add_argument(
+        "--model",
+        choices=["aliked-t16", "aliked-n16", "aliked-n16rot", "aliked-n32"],
+        default="aliked-n16rot",
+        help="The model configuration",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda",
+        help="Running device (default: cuda).",
+    )
+    parser.add_argument(
+        "--top_k",
+        type=int,
+        default=-1,
+        help="Detect top K keypoints. -1 for threshold based mode, >0 for top "
+        "K mode. (default: -1)",
+    )
+    parser.add_argument(
+        "--scores_th",
+        type=float,
+        default=0.2,
+        help="Detector score threshold (default: 0.2).",
+    )
+    parser.add_argument(
+        "--n_limit",
+        type=int,
+        default=5000,
+        help="Maximum number of keypoints to be detected (default: 5000).",
+    )
+    args = parser.parse_args()
+    return args
 
 
 class ImageLoader(object):
@@ -20,8 +65,8 @@ class ImageLoader(object):
             + glob.glob(os.path.join(filepath, "*.ppm"))
         )
         self.images.sort()
-        self.N = len(self.images)
-        logging.info(f"Loading {self.N} images")
+        self.num_images = len(self.images)
+        logging.info("Loading %s images", {self.num_images})
         self.mode = "images"
 
     def __getitem__(self, item):
@@ -30,7 +75,7 @@ class ImageLoader(object):
         return img
 
     def __len__(self):
-        return self.N
+        return self.num_images
 
 
 def mnn_mather(desc1, desc2):
@@ -101,44 +146,8 @@ def plot_matches(
     return out
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ALIKED image pair Demo.")
-    parser.add_argument("input", type=str, default="", help="Image directory.")
-    parser.add_argument("--trt_model_path", type=str, default=None,
-                        help="Path to .trt version of model.")
-    parser.add_argument(
-        "--model",
-        choices=["aliked-t16", "aliked-n16", "aliked-n16rot", "aliked-n32"],
-        default="aliked-n16rot",
-        help="The model configuration",
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda",
-        help="Running device (default: cuda).",
-    )
-    parser.add_argument(
-        "--top_k",
-        type=int,
-        default=-1,
-        help="Detect top K keypoints. -1 for threshold based mode, >0 for top "
-        "K mode. (default: -1)",
-    )
-    parser.add_argument(
-        "--scores_th",
-        type=float,
-        default=0.2,
-        help="Detector score threshold (default: 0.2).",
-    )
-    parser.add_argument(
-        "--n_limit",
-        type=int,
-        default=5000,
-        help="Maximum number of keypoints to be detected (default: 5000).",
-    )
-    args = parser.parse_args()
-
+def main():
+    args = parse_args()
     logging.basicConfig(level=logging.INFO)
 
     image_loader = ImageLoader(args.input)
@@ -150,7 +159,7 @@ if __name__ == "__main__":
             scores_th=args.scores_th,
             n_limit=args.n_limit,
         )
-    else: # Use TRT version.
+    else:  # Use TRT version.
         trt_logger = LOGGER_DICT["verbose"]
         model = TRTInference(args.trt_model_path, args.model, trt_logger)
 
@@ -159,8 +168,8 @@ if __name__ == "__main__":
     img_ref = image_loader[0]
     img_rgb = cv2.cvtColor(img_ref, cv2.COLOR_BGR2RGB)
     pred_ref = model.run(img_rgb)
-    kpts_ref = pred_ref['keypoints']
-    desc_ref = pred_ref['descriptors']
+    kpts_ref = pred_ref["keypoints"]
+    desc_ref = pred_ref["descriptors"]
     desc_ref = np.copy(desc_ref)
 
     for i in range(1, len(image_loader)):
@@ -169,8 +178,8 @@ if __name__ == "__main__":
             break
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         pred = model.run(img_rgb)
-        kpts = pred['keypoints']
-        desc = pred['descriptors']
+        kpts = pred["keypoints"]
+        desc = pred["descriptors"]
 
         matches = mnn_mather(desc_ref, desc)
         status = f"matches/keypoints: {len(matches)}/{len(kpts)}"
@@ -193,8 +202,6 @@ if __name__ == "__main__":
         c = cv2.waitKey()
         if c == ord("q") or c == 27:
             break
-    
-    # model.cfx.pop()
 
     logging.info("Finished!")
     logging.info("Press any key to exit!")
@@ -210,3 +217,7 @@ if __name__ == "__main__":
     )
     cv2.imshow(args.model, vis_img)
     cv2.waitKey()
+
+
+if __name__ == "__main__":
+    main()
