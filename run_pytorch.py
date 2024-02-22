@@ -61,8 +61,13 @@ def main():
         n_limit=args.n_limit,
     )
 
-    timings = []
     image_loader = ImageLoader(args.input)
+
+    warmup_image = image_loader[0]
+    warmup_image = cv2.cvtColor(warmup_image, cv2.COLOR_BGR2RGB)
+    model.warmup(warmup_image)
+
+    timings = []
     for image in tqdm(image_loader, desc="PyTorch Inference"):
         #  image: (H, W, C)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -73,9 +78,9 @@ def main():
         end_time = time()
         duration = (end_time - start_time) * 1000  # convert to ms.
         timings.append(duration)
-        # keypoints = wh * (keypoints + 1) / 2
 
-    timings = timings[5:]
+    # timings = timings[5:]
+    print(timings)
     print(f"mean: {np.mean(timings):.2f}ms")
     print(f"median: {np.median(timings):.2f}ms")
     print(f"min: {np.min(timings):.2f}ms")

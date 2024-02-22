@@ -91,6 +91,12 @@ class TRTInference:
         self.cuda_outputs = cuda_outputs
         self.bindings = bindings
     
+    def warmup(self, image: np.ndarray, num_iterations: int = 3) -> None:
+        print("Starting warm-up ...")
+        for _ in range(num_iterations):
+            self.run(image)
+        print("Warm-up done!")
+    
     def run(self, image):
         image_tensor = ToTensor()(image).unsqueeze(0)  # (B, C, H, W)
         image = image_tensor.numpy()

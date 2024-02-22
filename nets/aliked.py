@@ -1,13 +1,16 @@
 import os.path as osp
+import time
+
+import numpy as np
 import torch
+
 from torch import nn
 from torchvision.models import resnet
+from torchvision.transforms import ToTensor
 
 from nets.soft_detect import DKD
 from nets.padder import InputPadder
 from nets.blocks import *
-import time
-from torchvision.transforms import ToTensor
 
 
 ALIKED_CFGS = {
@@ -208,6 +211,12 @@ class ALIKED(nn.Module):
             # 'score_map': score_map,  # Bx1xHxW
             # 'time': t1-t0,
         }
+
+    def warmup(self, image: np.ndarray, num_iterations: int = 3) -> None:
+        print("Starting warm-up ...")
+        for _ in range(num_iterations):
+            self.run(image)
+        print("Warm-up done!")
 
     def run(self, img_rgb):
         img_tensor = ToTensor()(img_rgb)
