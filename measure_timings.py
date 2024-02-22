@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 from argparse import Namespace
 from time import time
@@ -75,6 +76,26 @@ def parse_args():
     return args
 
 
+def get_gpu_memory_usage() -> int:
+    _NVIDIA_SMI_COMMAND = (
+        "nvidia-smi "
+        "--query-compute-apps=pid,used_memory "
+        "--format=csv,noheader,nounits"
+    )
+    # If multiple GPU-processes are running, we get multiple results, splitted
+    # with new-line char.
+    results = os.popen(_NVIDIA_SMI_COMMAND).read().strip().split("\n")
+
+    current_pid = os.getpid()
+    for result in results:
+        pid, used_memory = result.split(",")
+        used_memory = int(used_memory)
+        if int(pid) == current_pid: # This is our process!
+            return used_memory
+
+    return -1  # Indicate process not found.
+
+
 def measure(aliked_service: AlikedService, image_loader: ImageLoader) -> None:
     timings = []
     for image in tqdm(image_loader, desc="Inference"):
@@ -95,7 +116,7 @@ def measure(aliked_service: AlikedService, image_loader: ImageLoader) -> None:
 
 
 def create_aliked_service(args: Namespace):
-    if args.trt_model_path is None: # Use PyTorch version.
+    if args.trt_model_path is None:  # Use PyTorch version.
         model = ALIKED(
             model_name=args.model,
             device=args.device,
@@ -123,6 +144,12 @@ def main():
     aliked_service.warmup(warmup_image)
 
     measure(aliked_service=aliked_service, image_loader=image_loader)
+
+    gpu_memory_usage = get_gpu_memory_usage()
+    if gpu_memory_usage != -1:
+        print(f"GPU memory usage: {gpu_memory_usage} MiB")
+    else:
+        print("Error: Couldn't find current process in nvidia-smi output.")
 
 
 if __name__ == "__main__":

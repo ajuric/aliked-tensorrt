@@ -67,13 +67,13 @@ $ python convert_onnx_to_trt.py \
 
 ## TODO
 
-* Investigate the speed of custom_ops get_patches and my get_patches.
-* Measure speed and memory in: origial pytorch, pytorch.compile, pytorch-tensorrt, onnx-gpu
 * ✅ <s>Refactor code for easier speed measuring</s>.
 * ✅ <s>Add warm-up</s>.
+* ✅ <s>Add auto-fetching of gpu memory consumption</s>.
+* Investigate the speed of custom_ops get_patches and my get_patches.
+* Measure speed and memory in: origial pytorch, pytorch.compile, pytorch-tensorrt, onnx-gpu
 * Add more data for measuring.
 * Add more measurements.
-* Add auto-fetching of gpu memory consumption.
 * Add C++ impl.
 * Sort outputs before comparing, during conversion in onnx.
 * Use NVIDIA Triton inference?
