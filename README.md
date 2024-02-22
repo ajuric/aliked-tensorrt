@@ -27,20 +27,27 @@ Timings are currently done using data from `assets`. Before measuring inference
 time, models go through warm-up - do couple of inferences in order to fully 
 initialize memory on GPU. This initialization takes time, and first inferences take longer than usual because of it. Hence, after doing warm-up, there is no need to reject first few timing measurements.
 
-Image sizes of 640x480 and 1241x376 reflect TUM and Kitti image sizes from `assets` dir.
+Rows:
+* `model` - ALIKED model type
+* `K` - top_k
+* `image`: Image sizes of 640x480 and 1241x376 reflect TUM and Kitti image sizes from `assets` dir.
 
-Table shows mean inference time and GPU memory consumption as shown by `nvidia-smi`.
+Columns:
+* `TRT` - TensorRT
+* `PyT` - PyTorch
+* `ms` - Mean inference time in miliseconds.
+* `MiB` - GPU memory consumption as shown by `nvidia-smi`.
 
-|                                      | GTX 1660 Ti (ms) | RTX 2070 (ms, MiB) |
-|--------------------------------------|:----------------:|:------------------:|
-| model=t16, K=1000, image=640x480     |        TBM       |      9.73, 404     |
-| model=t16, K=2000, image=640x480     |        TBM       |     11.04, 404     |
-| model=t16, K=1000, image=1241x376    |        TBM       |     13.33, 532     |
-| model=t16, K=2000, image=1241x376    |        TBM       |     15.01, 526     |
-| model=n16rot, K=1000, image=640x480  |        TBM       |     14.42, 600     |
-| model=n16rot, K=2000, image=640x480  |        TBM       |     17.18, 604     |
-| model=n16rot, K=1000, image=1241x376 |        TBM       |     21.86, 818     |
-| model=n16rot, K=2000, image=1241x376 |        TBM       |     23.53, 824     |
+|                                      | GTX_1660_Ti,TRT(ms,MiB) | GTX_1660_Ti,PyT(ms, MiB) | RTX_2070,TRT(ms,MiB) |
+|--------------------------------------|:-----------------------:|--------------------------|:--------------------:|
+| model=t16, K=1000, image=640x480     |        11.62, 356       |        15.13, 866        |       9.73, 404      |
+| model=t16, K=2000, image=640x480     |        13.55, 364       |        16.32, 858        |      11.04, 404      |
+| model=t16, K=1000, image=1241x376    |        15.88, 468       |        19.20, 1222       |      13.33, 532      |
+| model=t16, K=2000, image=1241x376    |        18.76, 474       |        20.30, 1240       |      15.01, 526      |
+| model=n16rot, K=1000, image=640x480  |        17.66, 558       |        20.99, 1490       |      14.42, 600      |
+| model=n16rot, K=2000, image=640x480  |        21.72, 552       |        24.58, 1514       |      17.18, 604      |
+| model=n16rot, K=1000, image=1241x376 |        25.42, 788       |        27.28, 2204       |      21.86, 818      |
+| model=n16rot, K=2000, image=1241x376 |        29.53, 782       |        30.48, 2228       |      23.53, 824      |
 
 
 ## Convert to ONNX and TensorRT.
@@ -65,13 +72,23 @@ $ python convert_onnx_to_trt.py \
     --model_trt_path converted_model/aliked-n16rot-top1k-tum.trt
 ```
 
+## Measure
+
+To measure timings, use `measure_timings.py` script which accepts same args as 
+`demo_pair.py`
+
 ## TODO
 
-* ✅ <s>Refactor code for easier speed measuring</s>.
-* ✅ <s>Add warm-up</s>.
-* ✅ <s>Add auto-fetching of gpu memory consumption</s>.
+* ✅ <span style="color:gray"><s>Refactor code for easier speed measuring</s>.</span>
+* ✅ <span style="color:gray"><s>Add warm-up</s>.</span>
+* ✅ <span style="color:gray"><s>Add auto-fetching of gpu memory consumption</s>.</span>
+* Measure speed and memory in: 
+    * ✅ <span style="color:gray"><s>tensorrt</s></span>
+    * ✅ <span style="color:gray"><s>origial pytorch</s></span>
+    * pytorch.compile
+    * pytorch-tensorrt
+    * onnx-gpu
 * Investigate the speed of custom_ops get_patches and my get_patches.
-* Measure speed and memory in: origial pytorch, pytorch.compile, pytorch-tensorrt, onnx-gpu
 * Add more data for measuring.
 * Add more measurements.
 * Add C++ impl.
