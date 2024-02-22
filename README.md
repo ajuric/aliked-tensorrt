@@ -23,12 +23,13 @@ Additionally, after fetching top-k keypoints, user can always manually reject th
 
 ## Timings
 
-Timings are currently done using data from `assets`.
-First few measurements are rejected (timings are not representative due to initialization).
+Timings are currently done using data from `assets`. Before measuring inference 
+time, models go through warm-up - do couple of inferences in order to fully 
+initialize memory on GPU. This initialization takes time, and first inferences take longer than usual because of it. Hence, after doing warm-up, there is no need to reject first few timing measurements.
 
 Image sizes of 640x480 and 1241x376 reflect TUM and Kitti image sizes from `assets` dir.
 
-Table shows mean inferenc time and GPU memory consumption as shown by `nvidia-smi`.
+Table shows mean inference time and GPU memory consumption as shown by `nvidia-smi`.
 
 |                                      | GTX 1660 Ti (ms) | RTX 2070 (ms, MiB) |
 |--------------------------------------|:----------------:|:------------------:|
@@ -69,10 +70,10 @@ $ python convert_onnx_to_trt.py \
 * Investigate the speed of custom_ops get_patches and my get_patches.
 * Measure speed and memory in: origial pytorch, pytorch.compile, pytorch-tensorrt, onnx-gpu
 * Refactor code for easier usage, easier speed measuring, ...
-* Add warm-up.
+* ✅ <s>Add warm-up</s>.
 * Add more data for measuring.
 * Add more measurements.
-* Add auto-fetching  of gpu memory consumption.
+* Add auto-fetching of gpu memory consumption.
 * Add C++ impl.
 * Sort outputs before comparing, during conversion in onnx.
-* Use NVIDIA Triton inferecen?
+* Use NVIDIA Triton inference?
