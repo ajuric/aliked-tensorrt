@@ -69,7 +69,7 @@ $ python convert_onnx_to_trt.py \
 
 * Investigate the speed of custom_ops get_patches and my get_patches.
 * Measure speed and memory in: origial pytorch, pytorch.compile, pytorch-tensorrt, onnx-gpu
-* Refactor code for easier usage, easier speed measuring, ...
+* ✅ <s>Refactor code for easier speed measuring</s>.
 * ✅ <s>Add warm-up</s>.
 * Add more data for measuring.
 * Add more measurements.
