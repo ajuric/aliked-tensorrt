@@ -8,6 +8,7 @@ from time import time
 
 import cv2
 import numpy as np
+import torch
 
 from tqdm import tqdm
 
@@ -17,6 +18,7 @@ from aliked_service import (
     AlikedService,
 )
 from demo_pair import ImageLoader
+from gpu_utils import show_memory_gpu_usage
 from nets.aliked import ALIKED
 from trt_model import LOGGER_DICT, TRTInference
 
@@ -32,7 +34,15 @@ def parse_args():
         "--trt_model_path",
         default=None,
         type=str,
-        help="Path to model in TRT format.",
+        help="Path to model in TRT format. This cannot be used in combination "
+        "with --compile argument since torch.compile() is used for PyTorch "
+        "models, not for TensorRT.",
+    )
+    parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="Use torch.compile() optimization for PyTorch model. This cannot "
+        "be used in combination with --trt_model_path argument.",
     )
     parser.add_argument(
         "--model",
@@ -73,27 +83,13 @@ def parse_args():
     )
 
     args = parser.parse_args()
+
+    if args.trt_model_path is not None and not args.compile:
+        raise ValueError(
+            "Both arguments --trt_model_path and --compile are provided! "
+        )
+
     return args
-
-
-def get_gpu_memory_usage() -> int:
-    _NVIDIA_SMI_COMMAND = (
-        "nvidia-smi "
-        "--query-compute-apps=pid,used_memory "
-        "--format=csv,noheader,nounits"
-    )
-    # If multiple GPU-processes are running, we get multiple results, splitted
-    # with new-line char.
-    results = os.popen(_NVIDIA_SMI_COMMAND).read().strip().split("\n")
-
-    current_pid = os.getpid()
-    for result in results:
-        pid, used_memory = result.split(",")
-        used_memory = int(used_memory)
-        if int(pid) == current_pid: # This is our process!
-            return used_memory
-
-    return -1  # Indicate process not found.
 
 
 def measure(aliked_service: AlikedService, image_loader: ImageLoader) -> None:
@@ -115,7 +111,7 @@ def measure(aliked_service: AlikedService, image_loader: ImageLoader) -> None:
     print(f"max: {np.max(timings):.2f}ms")
 
 
-def create_aliked_service(args: Namespace):
+def create_aliked_service(args: Namespace) -> AlikedService:
     if args.trt_model_path is None:  # Use PyTorch version.
         model = ALIKED(
             model_name=args.model,
@@ -124,6 +120,12 @@ def create_aliked_service(args: Namespace):
             scores_th=args.scores_th,
             n_limit=args.n_limit,
         )
+        if args.compile:
+            model = model.to("cuda")
+            model = torch.jit.trace(
+                model, torch.randn(1, 3, 480, 640, device="cuda")
+            )
+            model = torch.compile(model, mode="reduce-overhead")
         aliked_service = PyTorchAlikedService(model)
     else:  # Use TRT version.
         trt_logger = LOGGER_DICT["verbose"]
@@ -143,13 +145,9 @@ def main():
     warmup_image = cv2.cvtColor(warmup_image, cv2.COLOR_BGR2RGB)
     aliked_service.warmup(warmup_image)
 
+    show_memory_gpu_usage()
     measure(aliked_service=aliked_service, image_loader=image_loader)
-
-    gpu_memory_usage = get_gpu_memory_usage()
-    if gpu_memory_usage != -1:
-        print(f"GPU memory usage: {gpu_memory_usage} MiB")
-    else:
-        print("Error: Couldn't find current process in nvidia-smi output.")
+    show_memory_gpu_usage()
 
 
 if __name__ == "__main__":

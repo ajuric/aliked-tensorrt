@@ -24,8 +24,12 @@ class AlikedService(ABC):
     def prepare_data(self, image: np.ndarray) -> np.ndarray | Tensor:
         pass
 
-    def warmup(self, image: np.ndarray) -> None:
-        self._model.warmup(image)
+    def warmup(self, image: np.ndarray, num_iterations: int = 3) -> None:
+        print("Starting warm-up ...")
+        image = self.prepare_data(image)
+        for _ in range(num_iterations):
+            self.infer(image)
+        print("Warm-up done!")
 
     @abstractmethod
     def infer(
@@ -44,16 +48,19 @@ class PyTorchAlikedService(AlikedService):
 
     def prepare_data(self, image: np.ndarray) -> Tensor:
         img_tensor = ToTensor()(image)
-        img_tensor = img_tensor.to(self._model.device).unsqueeze_(0)
+        # img_tensor = img_tensor.to(self._model.device).unsqueeze_(0)
+        img_tensor = img_tensor.to("cuda").unsqueeze_(0)
         return img_tensor
 
     def infer(self, image: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        predictions = self._model.forward(image)
-        return (
-            predictions["keypoints"],
-            predictions["descriptors"],
-            predictions["scores"],
-        )
+        # predictions = self._model.forward(image)
+        # return (
+        #     predictions["keypoints"],
+        #     predictions["descriptors"],
+        #     predictions["scores"],
+        # )
+        keypoints, descriptors, scores = self._model.forward(image)
+        return keypoints, descriptors, scores
 
 
 class TensorRTAlikedService(AlikedService):

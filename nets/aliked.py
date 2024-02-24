@@ -203,14 +203,15 @@ class ALIKED(nn.Module):
         torch.cuda.synchronize()
         # t1 = time.time()
 
-        return {
-            "keypoints": keypoints,  # B N 2
-            "descriptors": descriptors,  # B N D
-            "scores": kptscores,  # B N
-            # 'score_dispersity': scoredispersitys,
-            # 'score_map': score_map,  # Bx1xHxW
-            # 'time': t1-t0,
-        }
+        # return {
+        #     "keypoints": keypoints,  # B N 2
+        #     "descriptors": descriptors,  # B N D
+        #     "scores": kptscores,  # B N
+        #     # 'score_dispersity': scoredispersitys,
+        #     # 'score_map': score_map,  # Bx1xHxW
+        #     # 'time': t1-t0,
+        # }
+        return keypoints, descriptors, kptscores
 
     def warmup(self, image: np.ndarray, num_iterations: int = 3) -> None:
         print("Starting warm-up ...")
@@ -219,11 +220,16 @@ class ALIKED(nn.Module):
         print("Warm-up done!")
 
     def run(self, img_rgb):
+        # TODO: Fix this because now forward() doesn't return dict.
+        raise NotImplementedError(
+            "Fix this because now forward() doesn't return dict."
+        )
         img_tensor = ToTensor()(img_rgb)
         img_tensor = img_tensor.to(self.device).unsqueeze_(0)
 
         with torch.no_grad():
             pred = self.forward(img_tensor)
+            # keypoints, descriptors, kptscores = self.forward(img_tensor)
 
         kpts = pred["keypoints"][0]
         _, _, h, w = img_tensor.shape

@@ -14,12 +14,19 @@ Since top-k approach gives fixed number of outputs, this approach is selected fo
 Additionally, after fetching top-k keypoints, user can always manually reject those with score lower then threshold.
 
 ### Tools
+
+For PyTorch and TensorRT:
 * **container**: nvcr.io/nvidia/pytorch:23.12-py3
 * **PyTorch**: 2.2.0a0+81ea7a4
 * **TensorRT**: 8.6.1
 * **Torch-TensorRT**: 2.2.0a0
 * **ONNX**: 1.15.0rc2
 * **GPUs**: GTX 1660 TI (nvidia-driver: 545.29.06) and RTX 2070 (nvidia-driver:530.41.03)
+
+For PyTorch `torch.compile()` (different container because torch.compile() is in PyTorch nightly build):
+* **container**: nvcr.io/nvidia/cuda:12.1.1-devel-ubuntu22.04
+* **PyTorch**: 2.2.1+cu118
+* **GPUs**: GTX 1660 TI (nvidia-driver: 545.29.06)
 
 ## Timings
 
@@ -35,19 +42,21 @@ Rows:
 Columns:
 * `TRT` - TensorRT
 * `PyT` - PyTorch
+* `PyT.c` - PyTorch with `torch.compile()`
 * `ms` - Mean inference time in miliseconds.
 * `MiB` - GPU memory consumption as shown by `nvidia-smi`.
 
-|                                      | GTX_1660_Ti,TRT(ms,MiB) | GTX_1660_Ti,PyT(ms, MiB) | RTX_2070,TRT(ms,MiB) |
-|--------------------------------------|:-----------------------:|--------------------------|:--------------------:|
-| model=t16, K=1000, image=640x480     |        11.62, 356       |        15.13, 866        |       9.73, 404      |
-| model=t16, K=2000, image=640x480     |        13.55, 364       |        16.32, 858        |      11.04, 404      |
-| model=t16, K=1000, image=1241x376    |        15.88, 468       |        19.20, 1222       |      13.33, 532      |
-| model=t16, K=2000, image=1241x376    |        18.76, 474       |        20.30, 1240       |      15.01, 526      |
-| model=n16rot, K=1000, image=640x480  |        17.66, 558       |        20.99, 1490       |      14.42, 600      |
-| model=n16rot, K=2000, image=640x480  |        21.72, 552       |        24.58, 1514       |      17.18, 604      |
-| model=n16rot, K=1000, image=1241x376 |        25.42, 788       |        27.28, 2204       |      21.86, 818      |
-| model=n16rot, K=2000, image=1241x376 |        29.53, 782       |        30.48, 2228       |      23.53, 824      |
+|                                      | GTX 1660 Ti Mobile |  GTX 1660 Ti  |   GTX 1660 Ti   |   RTX 2070   |
+|:------------------------------------:|:------------------:|:-------------:|:---------------:|:------------:|
+|                                      |    TRT (ms,MiB)    | PyT (ms, MiB) | PyT.c (ms, MiB) | TRT (ms,MiB) |
+| model=t16, K=1000, image=640x480     |     11.62, 356     |   15.13, 866  |    10.52, 740   |   9.73, 404  |
+| model=t16, K=2000, image=640x480     |     13.55, 364     |   16.32, 858  |    10.75, 792   |  11.04, 404  |
+| model=t16, K=1000, image=1241x376    |     15.88, 468     |  19.20, 1222  |   14.23, 1110   |  13.33, 532  |
+| model=t16, K=2000, image=1241x376    |     18.76, 474     |  20.30, 1240  |   14.66, 1114   |  15.01, 526  |
+| model=n16rot, K=1000, image=640x480  |     17.66, 558     |  20.99, 1490  |   14.81, 1240   |  14.42, 600  |
+| model=n16rot, K=2000, image=640x480  |     21.72, 552     |  24.58, 1514  |   15.00, 1314   |  17.18, 604  |
+| model=n16rot, K=1000, image=1241x376 |     25.42, 788     |  27.28, 2204  |   21.39, 1884   |  21.86, 818  |
+| model=n16rot, K=2000, image=1241x376 |     29.53, 782     |  30.48, 2228  |   21.78, 1932   |  23.53, 824  |
 
 
 ## Convert to ONNX and TensorRT.
@@ -79,13 +88,13 @@ To measure timings, use `measure_timings.py` script which accepts same args as
 
 ## TODO
 
-* ✅ <span style="color:gray"><s>Refactor code for easier speed measuring</s>.</span>
-* ✅ <span style="color:gray"><s>Add warm-up</s>.</span>
-* ✅ <span style="color:gray"><s>Add auto-fetching of gpu memory consumption</s>.</span>
+* ✅ <s>Refactor code for easier speed measuring</s>.
+* ✅ <s>Add warm-up</s>.
+* ✅ <s>Add auto-fetching of gpu memory consumption</s>.
 * Measure speed and memory in: 
-    * ✅ <span style="color:gray"><s>tensorrt</s></span>
-    * ✅ <span style="color:gray"><s>origial pytorch</s></span>
-    * pytorch.compile
+    * ✅ <s>tensorrt</s>
+    * ✅ <s>origial pytorch</s>
+    * ✅ <s> pytorch.compile</s>
     * pytorch-tensorrt
     * onnx-gpu
 * Investigate the speed of custom_ops get_patches and my get_patches.
