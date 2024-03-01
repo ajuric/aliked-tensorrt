@@ -29,7 +29,13 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    # Model settings.
+    # I/O settings.
+    parser.add_argument(
+        "--images_dir",
+        type=str,
+        required=True,
+        help="Directory with images.",
+    )
     parser.add_argument(
         "--trt_model_path",
         default=None,
@@ -38,6 +44,8 @@ def parse_args():
         "with --compile argument since torch.compile() is used for PyTorch "
         "models, not for TensorRT.",
     )
+
+    # Model settings.
     parser.add_argument(
         "--compile",
         action="store_true",
@@ -49,12 +57,6 @@ def parse_args():
         choices=["aliked-t16", "aliked-n16", "aliked-n16rot", "aliked-n32"],
         default="aliked-n16rot",
         help="The model configuration",
-    )
-    parser.add_argument(
-        "--images_dir",
-        type=str,
-        required=True,
-        help="Directory with images.",
     )
     parser.add_argument(
         "--device",
