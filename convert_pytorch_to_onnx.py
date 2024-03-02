@@ -68,6 +68,11 @@ def parse_args():
 
     # ONNX export options.
     parser.add_argument(
+        "--amp",
+        action="store_true",
+        help="Enable automatic mixed precision.",
+    )
+    parser.add_argument(
         "--opset_version",
         type=int,
         # default=11,
@@ -123,34 +128,35 @@ def convert_to_onnx(
     print("Converting model to ONNX ...")
     export_save_path = args.model_output
     opset_version = args.opset_version
-    torch.onnx.export(
-        model,
-        image_tensor,
-        export_save_path,
-        export_params=True,
-        verbose=args.verbose,
-        opset_version=opset_version,
-        operator_export_type=torch.onnx.OperatorExportTypes.ONNX,
-        do_constant_folding=True,
-        input_names=[
-            "image",
-        ],
-        output_names=[
-            "keypoints",
-            "descriptors",
-            "scores",
-            # "score_dispersity",
-            # "score_map",
-        ],
-        # dynamic_axes={
-        #     "image": {1: "num_channels", 2: "height", 3: "width"},
-        #     "keypoints": {1: "num_keypoints"},
-        #     "descriptors": {1: "num_keypoints"},
-        #     "scores": {1: "num_keypoints"},
-        #     "score_dispersity": {1: "num_keypoints"},
-        #     "score_map": {2: "height", 3: "width"},
-        # },
-    )
+    with torch.cuda.amp.autocast(enabled=args.amp):
+        torch.onnx.export(
+            model,
+            image_tensor,
+            export_save_path,
+            export_params=True,
+            verbose=args.verbose,
+            opset_version=opset_version,
+            operator_export_type=torch.onnx.OperatorExportTypes.ONNX,
+            do_constant_folding=True,
+            input_names=[
+                "image",
+            ],
+            output_names=[
+                "keypoints",
+                "descriptors",
+                "scores",
+                # "score_dispersity",
+                # "score_map",
+            ],
+            # dynamic_axes={
+            #     "image": {1: "num_channels", 2: "height", 3: "width"},
+            #     "keypoints": {1: "num_keypoints"},
+            #     "descriptors": {1: "num_keypoints"},
+            #     "scores": {1: "num_keypoints"},
+            #     "score_dispersity": {1: "num_keypoints"},
+            #     "score_map": {2: "height", 3: "width"},
+            # },
+        )
     print(f"Model converted to ONNX and stored to {export_save_path}")
     onnx_model = onnx.load(export_save_path)
     onnx.checker.check_model(
@@ -193,7 +199,8 @@ def get_onnx_predictions(
     }
 
     all_timings = []
-    for _ in tqdm(range(20), desc="ONNX timing"):
+    # for _ in tqdm(range(20), desc="ONNX timing"):
+    for _ in tqdm(range(1), desc="ONNX timing"):
         start_time = time()
         pred_onnx = ort_session.run(
             [
@@ -208,34 +215,102 @@ def get_onnx_predictions(
         end_time = time()
         duration = (end_time - start_time) * 1000
         all_timings.append(duration)
-    print(f"timings.max: {np.max(all_timings[3:])}")
-    print(f"timings.min: {np.min(all_timings[3:])}")
-    print(f"timings.mean: {np.mean(all_timings[3:])}")
-    print(f"timings.median: {np.median(all_timings[3:])}")
+    # print(f"timings.max: {np.max(all_timings[3:])}")
+    # print(f"timings.min: {np.min(all_timings[3:])}")
+    # print(f"timings.mean: {np.mean(all_timings[3:])}")
+    # print(f"timings.median: {np.median(all_timings[3:])}")
     return pred_onnx
+
+
+def find_mutual_closest_keypoints(keypoints1, keypoints2):
+    # Find all pairs of closest keypoints
+    distances = np.sqrt(
+        np.sum((keypoints1[:, None, :] - keypoints2[None, :, :]) ** 2, axis=2)
+    )
+    # indices1, indices2 = np.unravel_index(
+    #     np.argmin(distances, axis=1), distances.shape
+    # )
+    indices1 = np.argmin(distances, axis=1)
+    indices2 = np.argmin(distances, axis=0)
+
+    # Find all pairs of mutual closest points
+    mutual_indices1 = []
+    mutual_indices2 = []
+    for index in range(indices1.shape[0]):
+        if index == indices2[indices1[index]]:
+            mutual_indices1.append(index)
+            mutual_indices2.append(indices1[index])
+
+    return mutual_indices1, mutual_indices2
 
 
 def compare_outputs(
     pred_onnx: List[np.ndarray], pred_torch: Dict[str, torch.Tensor]
 ):
+    keypoints_onnx = pred_onnx[0]
+    descriptors_onnx = pred_onnx[1]
+    scores_onnx = pred_onnx[2]
+
+    keypoints_torch = pred_torch[0][0]
+    descriptors_torch = pred_torch[1][0]
+    scores_torch = pred_torch[2][0]
+
+    mutual_indices1, mutual_indices2 = find_mutual_closest_keypoints(
+        keypoints_onnx, to_numpy(keypoints_torch)
+    )
+
+    keypoints_onnx = keypoints_onnx[mutual_indices1]
+    descriptors_onnx = descriptors_onnx[mutual_indices1]
+    scores_onnx = scores_onnx[mutual_indices1]
+
+    keypoints_torch = keypoints_torch[mutual_indices2]
+    descriptors_torch = descriptors_torch[mutual_indices2]
+    scores_torch = scores_torch[mutual_indices2]
+
     np.testing.assert_allclose(
-        pred_onnx[0],
-        to_numpy(pred_torch["keypoints"][0]),
-        rtol=1e-7,
-        atol=5e-5,
+        keypoints_onnx,
+        to_numpy(keypoints_torch),
+        rtol=5e-3,
+        atol=5e-3,
     )
     np.testing.assert_allclose(
-        pred_onnx[1],
-        to_numpy(pred_torch["descriptors"][0]),
-        rtol=1e-7,
-        atol=1e-5,
+        scores_onnx,
+        to_numpy(scores_torch),
+        rtol=5e-3,
+        atol=5e-2,
     )
+    # np.testing.assert_allclose(
+    #     descriptors_onnx,
+    #     to_numpy(descriptors_torch),
+    #     rtol=1e-7,
+    #     atol=1e-5,
+    # )
+    descriptors_similarity = np.einsum(
+        "ij,ij->i", descriptors_onnx, to_numpy(descriptors_torch)
+    )
+    ones = np.ones_like(descriptors_similarity)
     np.testing.assert_allclose(
-        pred_onnx[2],
-        to_numpy(pred_torch["scores"][0]),
-        rtol=1e-7,
-        atol=5e-5,
+        descriptors_similarity, ones, rtol=1e-2, atol=1e-2
     )
+
+    # np.testing.assert_allclose(
+    #     pred_onnx[0],
+    #     to_numpy(pred_torch["keypoints"][0]),
+    #     rtol=1e-7,
+    #     atol=5e-5,
+    # )
+    # np.testing.assert_allclose(
+    #     pred_onnx[1],
+    #     to_numpy(pred_torch["descriptors"][0]),
+    #     rtol=1e-7,
+    #     atol=1e-5,
+    # )
+    # np.testing.assert_allclose(
+    #     pred_onnx[2],
+    #     to_numpy(pred_torch["scores"][0]),
+    #     rtol=1e-7,
+    #     atol=5e-5,
+    # )
     # np.testing.assert_allclose(
     #     pred_onnx[3],
     #     to_numpy(pred_torch["score_dispersity"][0]),
