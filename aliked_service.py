@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple
 
 import numpy as np
+import torch
 
 from torch.nn import Module
 from torch import Tensor
@@ -43,13 +44,16 @@ class AlikedService(ABC):
 
 class PyTorchAlikedService(AlikedService):
 
-    def __init__(self, model: Module) -> None:
+    def __init__(self, model: Module, mode: str = "fp32") -> None:
         super().__init__("PyTorch-ALIKED", model)
+        self._mode = mode
 
     def prepare_data(self, image: np.ndarray) -> Tensor:
         img_tensor = ToTensor()(image)
         # img_tensor = img_tensor.to(self._model.device).unsqueeze_(0)
         img_tensor = img_tensor.to("cuda").unsqueeze_(0)
+        if self._mode == "fp16":
+            img_tensor = img_tensor.half()
         return img_tensor
 
     def infer(self, image: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
@@ -59,7 +63,11 @@ class PyTorchAlikedService(AlikedService):
         #     predictions["descriptors"],
         #     predictions["scores"],
         # )
-        keypoints, descriptors, scores = self._model.forward(image)
+        if self._mode == "amp":
+            with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
+                keypoints, descriptors, scores = self._model.forward(image)
+        else:
+            keypoints, descriptors, scores = self._model.forward(image)
         return keypoints, descriptors, scores
 
 

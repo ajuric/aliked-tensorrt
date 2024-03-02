@@ -47,6 +47,11 @@ def parse_args():
 
     # Model settings.
     parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="Use FP16 mode for PyTorch model.",
+    )
+    parser.add_argument(
         "--compile",
         action="store_true",
         help="Use torch.compile() optimization for PyTorch model. This cannot "
@@ -86,7 +91,7 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if args.trt_model_path is not None and not args.compile:
+    if args.trt_model_path is not None and args.compile:
         raise ValueError(
             "Both arguments --trt_model_path and --compile are provided! "
         )
@@ -122,13 +127,20 @@ def create_aliked_service(args: Namespace) -> AlikedService:
             scores_th=args.scores_th,
             n_limit=args.n_limit,
         )
+        if args.fp16:
+            model.half()
         if args.compile:
             model = model.to("cuda")
             model = torch.jit.trace(
-                model, torch.randn(1, 3, 480, 640, device="cuda")
+                model,
+                torch.randn(
+                    1, 3, 480, 640, device="cuda", dtype=torch.float32
+                ),
             )
             model = torch.compile(model, mode="reduce-overhead")
-        aliked_service = PyTorchAlikedService(model)
+        aliked_service = PyTorchAlikedService(
+            model, mode="fp32" if not args.fp16 else "fp16"
+        )
     else:  # Use TRT version.
         trt_logger = LOGGER_DICT["verbose"]
         model = TRTInference(args.trt_model_path, args.model, trt_logger)

@@ -220,25 +220,21 @@ class ALIKED(nn.Module):
         print("Warm-up done!")
 
     def run(self, img_rgb):
-        # TODO: Fix this because now forward() doesn't return dict.
-        raise NotImplementedError(
-            "Fix this because now forward() doesn't return dict."
-        )
+
         img_tensor = ToTensor()(img_rgb)
+        # img_tensor = img_tensor.to(self.device).unsqueeze_(0).half()
         img_tensor = img_tensor.to(self.device).unsqueeze_(0)
 
         with torch.no_grad():
-            pred = self.forward(img_tensor)
-            # keypoints, descriptors, kptscores = self.forward(img_tensor)
+            keypoints, descriptors, scores = self.forward(img_tensor)
 
-        kpts = pred["keypoints"][0]
+        keypoints = keypoints[0]
         _, _, h, w = img_tensor.shape
-        wh = torch.tensor([w - 1, h - 1], device=kpts.device)
-        kpts = wh * (kpts + 1) / 2
+        wh = torch.tensor([w - 1, h - 1], device=keypoints.device)
+        keypoints = wh * (keypoints + 1) / 2
+        
         return {
-            "keypoints": kpts.cpu().numpy(),  # N 2
-            "descriptors": pred["descriptors"][0].cpu().numpy(),  # N D
-            "scores": pred["scores"][0].cpu().numpy(),  # B N D
-            # "score_map": pred["score_map"][0, 0].cpu().numpy(),  # Bx1xHxW
-            # "time": pred["time"],
+            "keypoints": keypoints.cpu().numpy(),  # N 2
+            "descriptors": descriptors[0].cpu().numpy(),  # N D
+            "scores": scores[0].cpu().numpy(),  # B N D
         }

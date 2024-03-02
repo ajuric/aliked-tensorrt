@@ -80,6 +80,9 @@ class DKD(nn.Module):
         self.hw_grid = (
             torch.stack(torch.meshgrid([x, x])).view(2, -1).t()[:, [1, 0]]
         ).to("cuda")
+        # self.hw_grid = (
+        #     torch.stack(torch.meshgrid([x, x])).view(2, -1).t()[:, [1, 0]]
+        # ).to("cuda").half()
 
     def detect_keypoints(self, scores_map: Tensor, sub_pixel: bool = True):
         b, c, h, w = scores_map.shape

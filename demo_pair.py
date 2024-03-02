@@ -159,6 +159,7 @@ def main():
             scores_th=args.scores_th,
             n_limit=args.n_limit,
         )
+        # model.half()
     else:  # Use TRT version.
         trt_logger = LOGGER_DICT["verbose"]
         model = TRTInference(args.trt_model_path, args.model, trt_logger)
